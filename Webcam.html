@@ -23,13 +23,13 @@
       button {
         position: absolute;
         z-index: 10;
-        padding: 10px 16px;
         background-color: rgba(0, 0, 0, 0.7);
         color: white;
         border: none;
         border-radius: 5px;
         cursor: pointer;
         font-size: 14px;
+        padding: 10px 16px;
       }
       #resetButton {
         top: 10px;
@@ -47,6 +47,14 @@
       }
       button:hover {
         background-color: rgba(0, 0, 0, 0.9);
+      }
+
+      /* ✅ 모바일 버튼 크기 키우기 */
+      @media (max-width: 768px) {
+        button {
+          font-size: 16px;
+          padding: 14px 20px;
+        }
       }
     </style>
   </head>
@@ -72,7 +80,7 @@
 
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: isMobile ? { facingMode: { exact: facingMode } } : true, // PC는 기본 카메라만 요청
+            video: isMobile ? { facingMode: { exact: facingMode } } : true,
             audio: false,
           });
           video.srcObject = stream;
@@ -90,7 +98,7 @@
         });
       }
 
-      setupCamera(isMobile ? currentFacing : 'user'); // 모바일은 환경 카메라, PC는 전면
+      setupCamera(isMobile ? currentFacing : 'user');
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(
@@ -136,7 +144,6 @@
         requestAnimationFrame(animate);
         const delta = (time - lastTime) / 1000;
         lastTime = time;
-
         if (model && rotating) model.rotation.y += delta * speed;
         renderer.render(scene, camera);
       }
@@ -144,33 +151,27 @@
       animate();
 
       window.addEventListener('click', () => (rotating = !rotating));
+
       document.getElementById('resetButton').addEventListener('click', (e) => {
         e.stopPropagation();
         if (model) model.rotation.y = 0;
       });
 
-      document
-        .getElementById('captureButton')
-        .addEventListener('click', (e) => {
-          e.stopPropagation();
-          const width = renderer.domElement.width;
-          const height = renderer.domElement.height;
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-
-          ctx.drawImage(video, 0, 0, width, height);
-          ctx.drawImage(renderer.domElement, 0, 0, width, height);
-
-          const link = document.createElement('a');
-          link.href = canvas.toDataURL('image/png');
-          link.download = `꼴깍_${new Date()
-            .toISOString()
-            .replace(/[:.]/g, '-')}.png`;
-          link.click();
-        });
+      document.getElementById('captureButton').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const width = renderer.domElement.width;
+        const height = renderer.domElement.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, width, height);
+        ctx.drawImage(renderer.domElement, 0, 0, width, height);
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `꼴깍_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+        link.click();
+      });
 
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
