@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>3D 캐릭터 AR 회전 + 카메라 전환</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        z-index: -1;
+      }
+      canvas {
+        display: block;
+      }
+      button {
+        position: absolute;
+        z-index: 10;
+        padding: 10px 16px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      #resetButton {
+        top: 10px;
+        right: 10px;
+      }
+      #captureButton {
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      #switchCameraButton {
+        bottom: 20px;
+        right: 10px;
+        display: none;
+      }
+      button:hover {
+        background-color: rgba(0, 0, 0, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <video id="webcam" autoplay muted playsinline></video>
+    <button id="resetButton">회전 초기화</button>
+    <button id="captureButton">📸 사진 촬영</button>
+    <button id="switchCameraButton">🔄 카메라 전환</button>
+
+    <script type="module">
+      import * as THREE from 'https://esm.sh/three@0.158.0';
+      import { GLTFLoader } from 'https://esm.sh/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
+
+      const video = document.getElementById('webcam');
+      const switchBtn = document.getElementById('switchCameraButton');
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      let currentFacing = 'environment';
+      let stream = null;
+
+      async function setupCamera(facingMode = 'user') {
+        if (stream) stream.getTracks().forEach((track) => track.stop());
+
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: isMobile ? { facingMode: { exact: facingMode } } : true, // PC는 기본 카메라만 요청
+            audio: false,
+          });
+          video.srcObject = stream;
+          currentFacing = facingMode;
+        } catch (err) {
+          console.error('카메라 연결 실패:', err);
+        }
+      }
+
+      if (isMobile) {
+        switchBtn.style.display = 'block';
+        switchBtn.addEventListener('click', () => {
+          const nextFacing = currentFacing === 'user' ? 'environment' : 'user';
+          setupCamera(nextFacing);
+        });
+      }
+
+      setupCamera(isMobile ? currentFacing : 'user'); // 모바일은 환경 카메라, PC는 전면
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.z = 2;
+
+      const renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        preserveDrawingBuffer: true,
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(0, 1, 2).normalize();
+      scene.add(light);
+
+      const loader = new GLTFLoader();
+      let model;
+
+      loader.load(
+        'honey.glb',
+        (gltf) => {
+          model = gltf.scene;
+          model.scale.set(0.5, 0.5, 0.5);
+          scene.add(model);
+        },
+        undefined,
+        (err) => {
+          console.error('모델 로드 실패:', err);
+        }
+      );
+
+      let rotating = false;
+      let lastTime = 0;
+      const speed = 2.5;
+
+      function animate(time) {
+        requestAnimationFrame(animate);
+        const delta = (time - lastTime) / 1000;
+        lastTime = time;
+
+        if (model && rotating) model.rotation.y += delta * speed;
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener('click', () => (rotating = !rotating));
+      document.getElementById('resetButton').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (model) model.rotation.y = 0;
+      });
+
+      document
+        .getElementById('captureButton')
+        .addEventListener('click', (e) => {
+          e.stopPropagation();
+          const width = renderer.domElement.width;
+          const height = renderer.domElement.height;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+
+          ctx.drawImage(video, 0, 0, width, height);
+          ctx.drawImage(renderer.domElement, 0, 0, width, height);
+
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = `꼴깍_${new Date()
+            .toISOString()
+            .replace(/[:.]/g, '-')}.png`;
+          link.click();
+        });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
