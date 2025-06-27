@@ -172,6 +172,7 @@
           const ctx = canvas.getContext('2d');
 
           ctx.drawImage(video, 0, 0, width, height);
+          // 캐릭터는 캡처 안함 (video만 분석 대상)
 
           const { data: { text } } = await Tesseract.recognize(canvas, 'eng+kor');
           const cleanedText = text.replace(/\s+/g, ' ').trim();
