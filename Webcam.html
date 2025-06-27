@@ -2,7 +2,7 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <title>3D 캐릭터 AR 회전 + 카메라 전환</title>
+    <title>3D 캐릭터 AR + 용어 인식</title>
     <style>
       body {
         margin: 0;
@@ -23,19 +23,13 @@
       button {
         position: absolute;
         z-index: 10;
+        padding: 10px 16px;
         background-color: rgba(0, 0, 0, 0.7);
         color: white;
         border: none;
         border-radius: 5px;
         cursor: pointer;
         font-size: 14px;
-        padding: 10px 16px;
-      }
-      @media (max-width: 768px) {
-        button {
-          font-size: 18px;
-          padding: 14px 20px;
-        }
       }
       #resetButton {
         top: 10px;
@@ -51,16 +45,30 @@
         right: 10px;
         display: none;
       }
+      #speechBubble {
+        position: absolute;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 16px;
+        display: none;
+        z-index: 15;
+      }
       button:hover {
         background-color: rgba(0, 0, 0, 0.9);
       }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   </head>
   <body>
     <video id="webcam" autoplay muted playsinline></video>
     <button id="resetButton">회전 초기화</button>
     <button id="captureButton">📸 사진 촬영</button>
     <button id="switchCameraButton">🔄 카메라 전환</button>
+    <div id="speechBubble"></div>
 
     <script type="module">
       import * as THREE from 'https://esm.sh/three@0.158.0';
@@ -69,6 +77,26 @@
       const video = document.getElementById('webcam');
       const switchBtn = document.getElementById('switchCameraButton');
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      const glossary = {
+        대출: '이자를 조건으로 돈을 빌려주는 행위야! 내가 돈을 주면 너는 더 많은 돈을 나한테 돌려줘야 하는거야?',
+        이자: '돈을 빌린 대가로 추가로 내는 돈이에요!',
+        '대출 방식': '담보 대출과 신용 대출이 있어',
+        '담보 대출':
+          '너가 돈을 못 갚으면 너의 소중한 물건을 내가 가지는 거야! 어떤 물건을 주고 싶어? 물론 갚으면 주지 않아도 좋아',
+        '신용 대출':
+          '너를 믿고 돈을 빌려주는 거야. 너가 꾸준히 돈을 벌고 있다면 신청 가능할 확률이 높아!!',
+        만기일시상환:
+          '매년 이자만 내다가, 마지막에 한 번에 원금과 이자를 모두 갚는 방식이야!',
+        원금균등상환:
+          '처음에 많이 내고 점점 적게 내는 방식이야. 돈은 적게 내지만 초반 부담이 클걸.',
+        원리금균등상환:
+          '매달 비슷한 금액을 갚아서 계산이 쉬워. 하지만 갚아야 할 돈은 제일 많아',
+        금리: '돈을 빌릴 때, 얼마나 더 내야 하는지를 퍼센트(%)로 나타낸 숫자예요. 금리에 따라 갚는 돈이 변해요.',
+        '고정 금리': '처음 정한 금리가 끝날 때까지 변하지 않아. 마음이 편안지?',
+        '변동 금리':
+          '금리가 주기적으로 변해 도박을 좋아하거나 경제 흐름에 자신이 있으면 도전하라구!',
+      };
 
       let currentFacing = 'environment';
       let stream = null;
@@ -142,7 +170,6 @@
         requestAnimationFrame(animate);
         const delta = (time - lastTime) / 1000;
         lastTime = time;
-
         if (model && rotating) model.rotation.y += delta * speed;
         renderer.render(scene, camera);
       }
@@ -155,27 +182,48 @@
         if (model) model.rotation.y = 0;
       });
 
-      document.getElementById('captureButton').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const width = renderer.domElement.width;
-        const height = renderer.domElement.height;
+      document
+        .getElementById('captureButton')
+        .addEventListener('click', (e) => {
+          e.stopPropagation();
+          const width = renderer.domElement.width;
+          const height = renderer.domElement.height;
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
 
-        ctx.drawImage(video, 0, 0, width, height);
-        ctx.drawImage(renderer.domElement, 0, 0, width, height);
+          ctx.drawImage(video, 0, 0, width, height);
+          ctx.drawImage(renderer.domElement, 0, 0, width, height);
 
-        const blobName = `꼴깍_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
-        const encodedName = encodeURIComponent(blobName);
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = `snapshot_${new Date()
+            .toISOString()
+            .replace(/[:.]/g, '-')}.png`;
+          link.click();
 
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = encodedName;
-        link.click();
-      });
+          // OCR + 단어 설명 처리
+          Tesseract.recognize(canvas, 'eng+kor', {
+            logger: (m) => console.log(m),
+          }).then(({ data: { text } }) => {
+            console.log('인식된 텍스트:', text);
+            const foundWord = Object.keys(glossary).find((word) =>
+              text.includes(word)
+            );
+            if (foundWord) {
+              const bubble = document.getElementById('speechBubble');
+              bubble.innerText = glossary[foundWord];
+              bubble.style.display = 'block';
+              setTimeout(() => {
+                bubble.style.display = 'none';
+              }, 5000);
+            } else {
+              alert('설명할 단어를 찾지 못했어요.');
+            }
+          });
+        });
 
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
