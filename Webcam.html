@@ -31,11 +31,7 @@
         cursor: pointer;
         font-size: 14px;
       }
-      #resetButton {
-        top: 10px;
-        right: 10px;
-      }
-      #captureButton {
+      #analyzeButton {
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
@@ -57,6 +53,19 @@
         display: none;
         z-index: 15;
       }
+      #loadingText {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 16px;
+        display: none;
+        z-index: 20;
+      }
       button:hover {
         background-color: rgba(0, 0, 0, 0.9);
       }
@@ -65,10 +74,10 @@
   </head>
   <body>
     <video id="webcam" autoplay muted playsinline></video>
-    <button id="resetButton">회전 초기화</button>
-    <button id="captureButton">📸 사진 촬영</button>
+    <button id="analyzeButton">🔍 해석</button>
     <button id="switchCameraButton">🔄 카메라 전환</button>
     <div id="speechBubble"></div>
+    <div id="loadingText">해석 중입니다...</div>
 
     <script type="module">
       import * as THREE from 'https://esm.sh/three@0.158.0';
@@ -76,6 +85,7 @@
 
       const video = document.getElementById('webcam');
       const switchBtn = document.getElementById('switchCameraButton');
+      const loadingText = document.getElementById('loadingText');
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       const glossary = {
@@ -162,30 +172,18 @@
         }
       );
 
-      let rotating = false;
-      let lastTime = 0;
-      const speed = 2.5;
-
-      function animate(time) {
+      function animate() {
         requestAnimationFrame(animate);
-        const delta = (time - lastTime) / 1000;
-        lastTime = time;
-        if (model && rotating) model.rotation.y += delta * speed;
         renderer.render(scene, camera);
       }
 
       animate();
 
-      window.addEventListener('click', () => (rotating = !rotating));
-      document.getElementById('resetButton').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (model) model.rotation.y = 0;
-      });
-
       document
-        .getElementById('captureButton')
-        .addEventListener('click', (e) => {
-          e.stopPropagation();
+        .getElementById('analyzeButton')
+        .addEventListener('click', async () => {
+          loadingText.style.display = 'block';
+
           const width = renderer.domElement.width;
           const height = renderer.domElement.height;
 
@@ -197,32 +195,26 @@
           ctx.drawImage(video, 0, 0, width, height);
           ctx.drawImage(renderer.domElement, 0, 0, width, height);
 
-          const link = document.createElement('a');
-          link.href = canvas.toDataURL('image/png');
-          link.download = `snapshot_${new Date()
-            .toISOString()
-            .replace(/[:.]/g, '-')}.png`;
-          link.click();
+          const {
+            data: { text },
+          } = await Tesseract.recognize(canvas, 'eng+kor');
+          console.log('인식된 텍스트:', text);
 
-          // OCR + 단어 설명 처리
-          Tesseract.recognize(canvas, 'eng+kor', {
-            logger: (m) => console.log(m),
-          }).then(({ data: { text } }) => {
-            console.log('인식된 텍스트:', text);
-            const foundWord = Object.keys(glossary).find((word) =>
-              text.includes(word)
-            );
-            if (foundWord) {
-              const bubble = document.getElementById('speechBubble');
-              bubble.innerText = glossary[foundWord];
-              bubble.style.display = 'block';
-              setTimeout(() => {
-                bubble.style.display = 'none';
-              }, 5000);
-            } else {
-              alert('설명할 단어를 찾지 못했어요.');
-            }
-          });
+          loadingText.style.display = 'none';
+
+          const foundWord = Object.keys(glossary).find((word) =>
+            text.includes(word)
+          );
+          if (foundWord) {
+            const bubble = document.getElementById('speechBubble');
+            bubble.innerText = glossary[foundWord];
+            bubble.style.display = 'block';
+            setTimeout(() => {
+              bubble.style.display = 'none';
+            }, 5000);
+          } else {
+            alert('설명할 단어를 찾지 못했어요.');
+          }
         });
 
       window.addEventListener('resize', () => {
