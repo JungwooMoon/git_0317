@@ -89,12 +89,17 @@
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       const glossary = {
-        "만기일시상환": "매년 이자만 내다가 마지막에 한 번에 원금과 이자를 모두 갚는 방식이에요!",
-        "원금균등상환": "처음에 많이 내고 점점 적게 내는 방식이에요. 이자는 줄어들지만, 초반 부담이 커요.",
-        "원리금균등상환": "매달 비슷한 금액을 갚아서 계산이 쉬워요. 하지만 전체로 보면 갚는 돈이 많을 수 있어요!",
-        "금리": "돈을 빌릴 때, 얼마나 더 내야 하는지를 퍼센트(%)로 나타낸 숫자예요.",
-        "고정 금리": "처음 정한 금리가 끝날 때까지 변하지 않아요. 마음이 편안하죠!",
-        "변동 금리": "금리가 주기적으로 바뀌어요. 경제 흐름에 따라 이자가 늘 수도, 줄 수도 있어요."
+        대출: '이자를 조건으로 돈을 빌려주는 행위야! 내가 돈을 주면 너는 더 많은 돈을 나한테 돌려줘야 하는거야?',
+        이자: '돈을 빌린 대가로 추가로 내는 돈이에요!',
+        "대출 방식": '담보 대출과 신용 대출이 있어',
+        "담보 대출": '너가 돈을 못 갚으면 너의 소중한 물건을 내가 가지는 거야! 어떤 물건을 주고 싶어? 물론 갚으면 주지 않아도 좋아',
+        "신용 대출": '너를 믿고 돈을 빌려주는 거야. 너가 꾸준히 돈을 벌고 있다면 신청 가능할 확률이 높아!!',
+        만기일시상환: '매년 이자만 내다가, 마지막에 한 번에 원금과 이자를 모두 갚는 방식이야!',
+        원금균등상환: '처음에 많이 내고 점점 적게 내는 방식이야. 돈은 적게 내지만 초반 부담이 클걸.',
+        원리금균등상환: '매달 비슷한 금액을 갚아서 계산이 쉬워. 하지만 갚아야 할 돈은 제일 많아',
+        금리: '돈을 빌릴 때, 얼마나 더 내야 하는지를 퍼센트(%)로 나타낸 숫자예요. 금리에 따라 갚는 돈이 변해요.',
+        "고정 금리": '처음 정한 금리가 끝날 때까지 변하지 않아. 마음이 편안지?',
+        "변동 금리": '금리가 주기적으로 변해 도박을 좋아하거나 경제 흐름에 자신이 있으면 도전하라구!'
       };
 
       let currentFacing = 'environment';
@@ -167,12 +172,12 @@
           const ctx = canvas.getContext('2d');
 
           ctx.drawImage(video, 0, 0, width, height);
-          ctx.drawImage(renderer.domElement, 0, 0, width, height);
 
           const { data: { text } } = await Tesseract.recognize(canvas, 'eng+kor');
-          console.log('인식된 텍스트:', text);
+          const cleanedText = text.replace(/\s+/g, ' ').trim();
+          console.log('인식된 텍스트:', cleanedText);
 
-          const foundWord = Object.keys(glossary).find((word) => text.includes(word));
+          const foundWord = Object.keys(glossary).find((word) => cleanedText.includes(word));
           if (foundWord) {
             const bubble = document.getElementById('speechBubble');
             bubble.innerText = glossary[foundWord];
